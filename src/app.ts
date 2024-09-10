@@ -9,6 +9,8 @@ import MongoStore from "connect-mongo";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth";
 import contractRoutes from "./routes/contracts";
+import paymentRoutes from './routes/payments';
+import { handleWebhook } from './controllers/paymentController';
 import "./config/passport";
 
 dotenv.config();
@@ -30,6 +32,11 @@ app.use(
 
 app.use(helmet());
 app.use(morgan("dev"));
+
+// Handle Stripe webhook separately, before body parsing middleware
+app.post('/payments/webhook', express.raw({type: 'application/json'}), handleWebhook);
+
+// Apply JSON body parsing to all other routes
 app.use(express.json());
 
 // Session configuration
@@ -52,6 +59,7 @@ app.use(passport.session());
 
 app.use("/auth", authRoutes);
 app.use("/api", contractRoutes);
+app.use('/payments', paymentRoutes);
 
 // Error handling middleware
 app.use(

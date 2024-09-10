@@ -8,6 +8,10 @@ import {
 } from "../services/aiService";
 import multer from "multer";
 import path from "path";
+import {
+  detectLanguage,
+  calculateExpirationDate,
+} from "../utils/contractUtils";
 
 // Configure multer for file upload
 const upload = multer({
@@ -47,11 +51,30 @@ export const analyzeContract = async (req: Request, res: Response) => {
 
   try {
     const pdfText = await extractTextFromPDF(req.file.path);
-    const analysis = await analyzeContractWithAI(pdfText);
+    let analysis;
+
+    if (user.isPremium) {
+      analysis = await analyzeContractWithAI(pdfText, "premium");
+    } else {
+      analysis = await analyzeContractWithAI(pdfText, "free");
+    }
+
+    // Validate the AI response
+    if (!analysis.summary || !analysis.risks || !analysis.opportunities) {
+      throw new Error("Invalid AI analysis response");
+    }
+
+    const language = await detectLanguage(pdfText);
+
     const savedAnalysis = await ContractAnalysis.create({
       userId: user._id,
       contractText: pdfText,
       ...analysis,
+      language,
+      expirationDate:
+        user.isPremium && analysis.contractDuration
+          ? calculateExpirationDate(analysis.contractDuration)
+          : undefined,
     });
 
     await fs.unlink(req.file.path);
@@ -82,3 +105,26 @@ export const getUserContracts = async (req: Request, res: Response) => {
 };
 
 export const uploadMiddleware = upload;
+
+export const addUserFeedback = async (req: Request, res: Response) => {
+  const { contractId } = req.params;
+  const { rating, comments } = req.body;
+  const user = req.user as IUser;
+
+  try {
+    const updatedContract = await ContractAnalysis.findOneAndUpdate(
+      { _id: contractId, userId: user._id },
+      { userFeedback: { rating, comments } },
+      { new: true }
+    );
+
+    if (!updatedContract) {
+      return res.status(404).json({ error: "Contract analysis not found" });
+    }
+
+    res.json(updatedContract);
+  } catch (error) {
+    console.error("Error adding user feedback:", error);
+    res.status(500).json({ error: "An error occurred while adding feedback" });
+  }
+};

@@ -4,13 +4,13 @@ import { IUser } from "./User";
 interface IRisk {
   risk: string;
   explanation: string;
-  severity: 'low' | 'medium' | 'high';
+  severity: "low" | "medium" | "high";
 }
 
 interface IOpportunity {
   opportunity: string;
   explanation: string;
-  impact: 'low' | 'medium' | 'high';
+  impact: "low" | "medium" | "high";
 }
 
 interface ICompensationStructure {
@@ -21,7 +21,7 @@ interface ICompensationStructure {
 }
 
 export interface IContractAnalysis extends Document {
-  userId: IUser['_id'];
+  userId: IUser["_id"];
   contractText: string;
   risks: IRisk[];
   opportunities: IOpportunity[];
@@ -36,10 +36,19 @@ export interface IContractAnalysis extends Document {
   performanceMetrics: string[];
   intellectualPropertyClauses: string;
   createdAt: Date;
+  version: number;
+  userFeedback: {
+    rating: number;
+    comments: string;
+  };
+  customFields: { [key: string]: string };
+  expirationDate: Date;
+  language: string;
+  aiModel: string;
 }
 
 const ContractAnalysisSchema: Schema = new Schema({
-  userId: { type: Schema.Types.ObjectId, ref: 'User', required: true },
+  userId: { type: Schema.Types.ObjectId, ref: "User", required: true },
   contractText: { type: String, required: true },
   risks: [{ risk: String, explanation: String, severity: String }],
   opportunities: [{ opportunity: String, explanation: String, impact: String }],
@@ -54,11 +63,23 @@ const ContractAnalysisSchema: Schema = new Schema({
     baseSalary: String,
     bonuses: String,
     equity: String,
-    otherBenefits: String
+    otherBenefits: String,
   },
   performanceMetrics: [{ type: String }],
   intellectualPropertyClauses: { type: String },
   createdAt: { type: Date, default: Date.now },
+  version: { type: Number, default: 1 },
+  userFeedback: {
+    rating: { type: Number, min: 1, max: 5 },
+    comments: String,
+  },
+  customFields: { type: Map, of: String },
+  expirationDate: { type: Date, required: false },
+  language: { type: String, default: "en" },
+  aiModel: { type: String, default: "gemini-pro" },
 });
 
-export default mongoose.model<IContractAnalysis>("ContractAnalysis", ContractAnalysisSchema);
+export default mongoose.model<IContractAnalysis>(
+  "ContractAnalysis",
+  ContractAnalysisSchema
+);
