@@ -60,7 +60,7 @@ const ContractAnalysisSchema: Schema = new Schema({
   negotiationPoints: [{ type: String }],
   contractDuration: { type: String },
   terminationConditions: { type: String },
-  overallScore: { type: Number, min: 1, max: 100 },
+  overallScore: { type: Number, min: 0, max: 100 },
   compensationStructure: {
     baseSalary: String,
     bonuses: String,

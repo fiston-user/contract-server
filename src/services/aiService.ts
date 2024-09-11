@@ -26,8 +26,8 @@ export const analyzeContractWithAI = async (
   if (tier === "premium") {
     prompt = `
       Analyze the following employment contract and provide:
-      1. A list of at least 5 potential risks for the employee, each with a brief explanation and severity level (low, medium, high).
-      2. A list of at least 5 potential opportunities or benefits for the employee, each with a brief explanation and impact level (low, medium, high).
+      1. A list of at least 10 potential risks for the employee, each with a brief explanation and severity level (low, medium, high).
+      2. A list of at least 10 potential opportunities or benefits for the employee, each with a brief explanation and impact level (low, medium, high).
       3. A comprehensive summary of the contract, including key terms and conditions.
       4. Any recommendations for improving the contract from the employee's perspective.
       5. A list of key clauses in the contract.
@@ -67,11 +67,10 @@ export const analyzeContractWithAI = async (
   } else {
     prompt = `
       Analyze the following employment contract and provide:
-      1. A list of 3 potential risks for the employee, each with a brief explanation.
-      2. A list of 3 potential opportunities or benefits for the employee, each with a brief explanation.
+      1. A list of 6 potential risks for the employee, each with a brief explanation.
+      2. A list of 6 potential opportunities or benefits for the employee, each with a brief explanation.
       3. A brief summary of the contract.
-      4. An overall score from 1 to 100, with 100 being the highest This score represents the overall favorability of the contract based on the identified risks and opportunities..
-
+      4. An overall score from 1 to 100, with 100 being the highest. This score represents the overall favorability of the contract based on the identified risks and opportunities.
 
       Format your response as a JSON object with the following structure:
       {
@@ -107,7 +106,7 @@ export const analyzeContractWithAI = async (
       risks: [],
       opportunities: [],
       summary: "Error analyzing contract. Please try again.",
-      recommendations: [],
+      overallScore: 0,
     };
   }
 };
