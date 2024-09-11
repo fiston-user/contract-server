@@ -55,11 +55,15 @@ export const handleWebhook = async (req: Request, res: Response) => {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     const userId = session.client_reference_id;
+    const customerId = session.customer as string;
 
-    if (userId) {
+    if (userId && customerId) {
       const user = await User.findByIdAndUpdate(
         userId,
-        { isPremium: true },
+        {
+          isPremium: true,
+          stripeCustomerId: customerId,
+        },
         { new: true }
       );
       console.log(`User ${userId} upgraded to premium`);
@@ -75,6 +79,11 @@ export const handleWebhook = async (req: Request, res: Response) => {
 
 export const getSubscriptionStatus = async (req: Request, res: Response) => {
   const user = req.user as any;
+
+  // Check if the user has a stripeCustomerId
+  if (!user.stripeCustomerId) {
+    return res.json({ status: "no active subscription" });
+  }
 
   try {
     const subscriptions = await stripe.subscriptions.list({

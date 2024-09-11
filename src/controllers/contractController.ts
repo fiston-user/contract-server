@@ -104,6 +104,28 @@ export const getUserContracts = async (req: Request, res: Response) => {
   }
 };
 
+export const getContractById = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const user = req.user as IUser;
+
+  try {
+    const contract = await ContractAnalysis.findOne({
+      _id: id,
+      userId: user._id,
+    });
+    if (!contract) {
+      return res.status(404).json({ error: "Contract analysis not found" });
+    }
+
+    res.json(contract);
+  } catch (error) {
+    console.error("Error fetching contract by ID:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while fetching the contract" });
+  }
+};
+
 export const uploadMiddleware = upload;
 
 export const addUserFeedback = async (req: Request, res: Response) => {

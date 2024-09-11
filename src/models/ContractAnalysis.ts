@@ -32,9 +32,10 @@ export interface IContractAnalysis extends Document {
   negotiationPoints: string[];
   contractDuration: string;
   terminationConditions: string;
+  overallScore: number;
   compensationStructure: ICompensationStructure;
   performanceMetrics: string[];
-  intellectualPropertyClauses: string;
+  intellectualPropertyClauses: string | string[];
   createdAt: Date;
   version: number;
   userFeedback: {
@@ -59,6 +60,7 @@ const ContractAnalysisSchema: Schema = new Schema({
   negotiationPoints: [{ type: String }],
   contractDuration: { type: String },
   terminationConditions: { type: String },
+  overallScore: { type: Number, min: 1, max: 100 },
   compensationStructure: {
     baseSalary: String,
     bonuses: String,
@@ -66,7 +68,19 @@ const ContractAnalysisSchema: Schema = new Schema({
     otherBenefits: String,
   },
   performanceMetrics: [{ type: String }],
-  intellectualPropertyClauses: { type: String },
+  intellectualPropertyClauses: {
+    type: Schema.Types.Mixed,
+    validate: {
+      validator: function (v: any) {
+        return (
+          typeof v === "string" ||
+          (Array.isArray(v) && v.every((item) => typeof item === "string"))
+        );
+      },
+      message: (props: { value: any }) =>
+        `${props.value} is not a valid string or array of strings!`,
+    },
+  },
   createdAt: { type: Date, default: Date.now },
   version: { type: Number, default: 1 },
   userFeedback: {

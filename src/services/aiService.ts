@@ -38,6 +38,9 @@ export const analyzeContractWithAI = async (
       10. A breakdown of the compensation structure.
       11. Any performance metrics or KPIs mentioned.
       12. A summary of intellectual property clauses.
+      13. An overall score from 1 to 100, with 100 being the highest This score represents the overall favorability of the contract based on the identified risks and opportunities..
+
+
 
       Format your response as a JSON object with the following structure:
       {
@@ -50,6 +53,7 @@ export const analyzeContractWithAI = async (
         "negotiationPoints": ["Point 1", "Point 2", ...],
         "contractDuration": "Duration of the contract",
         "terminationConditions": "Summary of termination conditions",
+        "overallScore": "Overall score from 1 to 100",
         "compensationStructure": {
           "baseSalary": "Amount",
           "bonuses": "Description",
@@ -66,11 +70,14 @@ export const analyzeContractWithAI = async (
       1. A list of 3 potential risks for the employee, each with a brief explanation.
       2. A list of 3 potential opportunities or benefits for the employee, each with a brief explanation.
       3. A brief summary of the contract.
+      4. An overall score from 1 to 100, with 100 being the highest This score represents the overall favorability of the contract based on the identified risks and opportunities..
+
 
       Format your response as a JSON object with the following structure:
       {
         "risks": [{"risk": "Risk description", "explanation": "Brief explanation"}],
         "opportunities": [{"opportunity": "Opportunity description", "explanation": "Brief explanation"}],
+        "overallScore": "Overall score from 1 to 100",
         "summary": "Brief summary of the contract"
       }
     `;
