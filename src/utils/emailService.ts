@@ -1,8 +1,16 @@
-import { Resend } from 'resend';
+import { Resend } from "resend";
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const RESEND_API_KEY = process.env.RESEND_API_KEY;
+if (!RESEND_API_KEY) {
+  throw new Error("RESEND_API_KEY is not set in environment variables");
+}
 
-export const sendPremiumConfirmationEmail = async (userEmail: string, userName: string) => {
+const resend = new Resend(RESEND_API_KEY);
+
+export const sendPremiumConfirmationEmail = async (
+  userEmail: string,
+  userName: string
+) => {
   try {
     await resend.emails.send({
       from: "Contract Analysis <noreply@simplemetrics.app>",
@@ -18,15 +26,18 @@ export const sendPremiumConfirmationEmail = async (userEmail: string, userName: 
         </ul>
         <p>If you have any questions or need assistance, please don't hesitate to contact our support team.</p>
         <p>Best regards,<br>The Contract Analysis Team</p>
-      `
+      `,
     });
-    console.log('Premium confirmation email sent successfully');
+    console.log("Premium confirmation email sent successfully");
   } catch (error) {
-    console.error('Error sending premium confirmation email:', error);
+    console.error("Error sending premium confirmation email:", error);
   }
 };
 
-export const sendSubscriptionCancelledEmail = async (userEmail: string, userName: string) => {
+export const sendSubscriptionCancelledEmail = async (
+  userEmail: string,
+  userName: string
+) => {
   try {
     await resend.emails.send({
       from: "Contract Analysis <noreply@simplemetrics.app>",
@@ -40,10 +51,10 @@ export const sendSubscriptionCancelledEmail = async (userEmail: string, userName
         <p>If you have any questions or feedback, please don't hesitate to contact our support team.</p>
         <p>Thank you for being a premium member.</p>
         <p>Best regards,<br>The Contract Analysis Team</p>
-      `
+      `,
     });
-    console.log('Subscription cancellation email sent successfully');
+    console.log("Subscription cancellation email sent successfully");
   } catch (error) {
-    console.error('Error sending subscription cancellation email:', error);
+    console.error("Error sending subscription cancellation email:", error);
   }
 };

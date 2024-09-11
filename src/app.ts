@@ -9,8 +9,8 @@ import MongoStore from "connect-mongo";
 import mongoose from "mongoose";
 import authRoutes from "./routes/auth";
 import contractRoutes from "./routes/contracts";
-import paymentRoutes from './routes/payments';
-import { handleWebhook } from './controllers/paymentController';
+import paymentRoutes from "./routes/payments";
+import { handleWebhook } from "./controllers/paymentController";
 import "./config/passport";
 
 dotenv.config();
@@ -34,7 +34,11 @@ app.use(helmet());
 app.use(morgan("dev"));
 
 // Handle Stripe webhook separately, before body parsing middleware
-app.post('/payments/webhook', express.raw({type: 'application/json'}), handleWebhook);
+app.post(
+  "/payments/webhook",
+  express.raw({ type: "application/json" }),
+  handleWebhook
+);
 
 // Apply JSON body parsing to all other routes
 app.use(express.json());
@@ -48,7 +52,7 @@ app.use(
     store: MongoStore.create({ mongoUrl: process.env.MONGODB_URI }),
     cookie: {
       secure: process.env.NODE_ENV === "production",
-      sameSite: process.env.NODE_ENV === "production" ? 'none' : 'lax',
+      sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
     },
   })
@@ -57,9 +61,14 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// health check endpoint
+app.get("/health", (req, res) => {
+  res.send("OK");
+});
+
 app.use("/auth", authRoutes);
 app.use("/api", contractRoutes);
-app.use('/payments', paymentRoutes);
+app.use("/payments", paymentRoutes);
 
 // Error handling middleware
 app.use(

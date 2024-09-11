@@ -1,12 +1,13 @@
 {
   "name": "contract-server",
   "version": "1.0.0",
-  "main": "index.js",
+  "main": "app.js",
   "scripts": {
     "test": "echo \"Error: no test specified\" && exit 1",
     "start": "node dist/app.js",
     "dev": "nodemon --watch 'src/**/*.ts' --exec 'ts-node -r dotenv/config' src/app.ts",
-    "build": "tsc"
+    "build": "tsc && npm run copy-package",
+    "copy-package": "cp package.json dist/"
   },
   "keywords": [],
   "author": "",
