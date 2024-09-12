@@ -1,6 +1,8 @@
 import { GoogleGenerativeAI } from "@google/generative-ai";
 import * as pdfjsLib from "pdfjs-dist";
 import fs from "fs/promises";
+import ContractAnalysis from "../models/ContractAnalysis";
+import mongoose from "mongoose";
 
 const genAI = new GoogleGenerativeAI(process.env.GOOGLE_AI_API_KEY!);
 
@@ -109,4 +111,64 @@ export const analyzeContractWithAI = async (
       overallScore: 0,
     };
   }
+};
+
+export const chatWithAI = async (
+  contractId: string,
+  userQuestion: string,
+  userId: string
+) => {
+  const model = genAI.getGenerativeModel({ model: "gemini-pro" });
+
+  // Fetch the contract analysis from the database
+  const contractAnalysis = await ContractAnalysis.findOne({
+    _id: contractId,
+    userId: new mongoose.Types.ObjectId(userId),
+  });
+
+  if (!contractAnalysis) {
+    throw new Error("Contract not found or unauthorized access");
+  }
+
+  // Prepare a summary of the contract for context
+  const contractSummary = `
+    Contract Summary:
+    - Overall Score: ${contractAnalysis.overallScore}
+    - Key Clauses: ${contractAnalysis.keyClauses.join(", ")}
+    - Contract Duration: ${contractAnalysis.contractDuration}
+    - Compensation: Base Salary - ${
+      contractAnalysis.compensationStructure.baseSalary
+    }, 
+                    Bonuses - ${contractAnalysis.compensationStructure.bonuses}
+    - Termination Conditions: ${contractAnalysis.terminationConditions}
+  `;
+
+  const contractText = contractAnalysis.contractText;
+
+  const prompt = `
+    You are an AI assistant specialized in analyzing employment contracts. You have previously analyzed a contract with the following summary:
+
+    ${contractSummary}
+
+    The full contract text is:
+    ${contractText}
+
+    A user has asked the following question:
+    "${userQuestion}"
+
+    Please provide a helpful, informative, and concise answer based on the contract analysis. Consider the following guidelines:
+
+    1. If the question is directly related to the contract, provide specific information from the analysis.
+    2. If the question is somewhat related but not specific, try to provide relevant information from the contract that might be helpful.
+    3. If the question is not related to the contract at all, politely redirect the user to ask about contract-related topics.
+    4. If the question is too vague or short, ask for clarification while providing some general information about the contract.
+    5. Always maintain a professional and helpful tone.
+    6. If asked about legal advice, remind the user that you cannot provide legal advice and recommend consulting with a legal professional.
+
+    Your response:
+  `;
+
+  const result = await model.generateContent(prompt);
+  const response = await result.response;
+  return response.text();
 };

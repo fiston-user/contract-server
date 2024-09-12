@@ -12,6 +12,8 @@ import {
   detectLanguage,
   calculateExpirationDate,
 } from "../utils/contractUtils";
+import { chatWithAI } from "../services/aiService";
+import mongoose from "mongoose";
 
 // Configure multer for file upload
 const upload = multer({
@@ -104,6 +106,28 @@ export const getUserContracts = async (req: Request, res: Response) => {
   }
 };
 
+export const deleteContractById = async (req: Request, res: Response) => {
+  const { id } = req.params;
+  const user = req.user as IUser;
+
+  try {
+    const contract = await ContractAnalysis.findOneAndDelete({
+      _id: id,
+      userId: user._id,
+    });
+    if (!contract) {
+      return res.status(404).json({ error: "Contract analysis not found" });
+    }
+
+    res.json({ message: "Contract analysis deleted successfully" });
+  } catch (error) {
+    console.error("Error deleting contract by ID:", error);
+    res
+      .status(500)
+      .json({ error: "An error occurred while deleting the contract" });
+  }
+};
+
 export const getContractById = async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = req.user as IUser;
@@ -150,3 +174,119 @@ export const addUserFeedback = async (req: Request, res: Response) => {
     res.status(500).json({ error: "An error occurred while adding feedback" });
   }
 };
+
+export const askQuestionAboutContract = async (req: Request, res: Response) => {
+  const user = req.user as IUser | undefined;
+  const { contractId } = req.params;
+  const { question } = req.body;
+
+  if (!user || !user._id) {
+    return res.status(401).json({ error: "Unauthorized" });
+  }
+
+  if (!question || typeof question !== "string") {
+    return res.status(400).json({ error: "A valid question is required" });
+  }
+
+  try {
+    const userIdString = user._id.toString();
+    const answer = await chatWithAI(contractId, question.trim(), userIdString);
+
+    // Process the answer to provide a more structured response
+    const response = {
+      answer,
+      isContractRelated: !answer
+        .toLowerCase()
+        .includes("not related to the contract"),
+      requiresLegalAdvice: answer
+        .toLowerCase()
+        .includes("recommend consulting with a legal professional"),
+      followUpSuggestions: generateFollowUpSuggestions(answer, question),
+    };
+
+    res.json(response);
+  } catch (error) {
+    console.error("Error chatting with AI:", error);
+    if (
+      error instanceof Error &&
+      error.message === "Contract not found or unauthorized access"
+    ) {
+      res.status(404).json({
+        error: "Contract not found or you don't have permission to access it",
+      });
+    } else {
+      res
+        .status(500)
+        .json({ error: "An error occurred while processing your question" });
+    }
+  }
+};
+
+// Helper function to generate follow-up suggestions
+function generateFollowUpSuggestions(
+  answer: string,
+  question: string
+): string[] {
+  const suggestions = [];
+  const lowercaseQuestion = question.toLowerCase();
+  const lowercaseAnswer = answer.toLowerCase();
+
+  if (
+    !lowercaseQuestion.includes("compensation") &&
+    !lowercaseQuestion.includes("salary") &&
+    (lowercaseAnswer.includes("salary") ||
+      lowercaseAnswer.includes("compensation"))
+  ) {
+    suggestions.push("Can you explain more about the compensation structure?");
+  }
+  if (
+    !lowercaseQuestion.includes("termination") &&
+    !lowercaseQuestion.includes("end of contract") &&
+    (lowercaseAnswer.includes("termination") ||
+      lowercaseAnswer.includes("end of contract"))
+  ) {
+    suggestions.push(
+      "What are the specific conditions for contract termination?"
+    );
+  }
+  if (
+    !lowercaseQuestion.includes("intellectual property") &&
+    !lowercaseQuestion.includes("ip") &&
+    (lowercaseAnswer.includes("intellectual property") ||
+      lowercaseAnswer.includes("ip"))
+  ) {
+    suggestions.push("Can you elaborate on the intellectual property clauses?");
+  }
+  if (
+    !lowercaseQuestion.includes("benefits") &&
+    lowercaseAnswer.includes("benefits")
+  ) {
+    suggestions.push("What other benefits are included in the contract?");
+  }
+  if (
+    !lowercaseQuestion.includes("non-compete") &&
+    lowercaseAnswer.includes("non-compete")
+  ) {
+    suggestions.push("Can you explain the non-compete clause in more detail?");
+  }
+  if (
+    !lowercaseQuestion.includes("performance") &&
+    lowercaseAnswer.includes("performance")
+  ) {
+    suggestions.push(
+      "Are there any performance-related clauses or metrics in the contract?"
+    );
+  }
+
+  // If we don't have any suggestions based on the answer, add some general ones
+  if (suggestions.length === 0) {
+    suggestions.push(
+      "What are the key points I should be aware of in this contract?",
+      "Are there any unusual or potentially concerning clauses in this contract?",
+      "How does this contract compare to industry standards?"
+    );
+  }
+
+  // Limit to 3 suggestions
+  return suggestions.slice(0, 3);
+}
