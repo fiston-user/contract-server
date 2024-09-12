@@ -17,18 +17,19 @@ dotenv.config();
 
 const app = express();
 
-// Connect to MongoDB
-mongoose
-  .connect(process.env.MONGODB_URI!)
-  .then(() => console.log("Connected to MongoDB"))
-  .catch((err) => console.error("MongoDB connection error:", err));
-
+// Update the CORS configuration
 app.use(
   cors({
     origin: process.env.CLIENT_URL,
     credentials: true,
   })
 );
+
+// Connect to MongoDB
+mongoose
+  .connect(process.env.MONGODB_URI!)
+  .then(() => console.log("Connected to MongoDB"))
+  .catch((err) => console.error("MongoDB connection error:", err));
 
 app.use(helmet());
 app.use(morgan("dev"));
@@ -43,7 +44,7 @@ app.post(
 // Apply JSON body parsing to all other routes
 app.use(express.json());
 
-// Session configuration
+// Update the session configuration
 app.use(
   session({
     secret: process.env.SESSION_SECRET!,
