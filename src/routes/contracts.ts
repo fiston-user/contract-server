@@ -2,10 +2,11 @@ import express from 'express';
 import { analyzeContract, getUserContracts, uploadMiddleware, addUserFeedback, getContractById, askQuestionAboutContract, deleteContractById } from '../controllers/contractController';
 import { isAuthenticated, handleErrors } from '../middleware/auth';
 import { checkPremium } from '../middleware/checkPremium';
+import { analyzeRateLimiter } from '../middleware/rateLimiter';
 
 const router = express.Router();
 
-router.post("/analyze", isAuthenticated, uploadMiddleware, handleErrors(analyzeContract));
+router.post("/analyze", isAuthenticated, analyzeRateLimiter, uploadMiddleware, handleErrors(analyzeContract));
 router.get("/user-contracts", isAuthenticated, handleErrors(getUserContracts));
 router.get("/contract/:id", isAuthenticated, handleErrors(getContractById));
 router.post("/feedback/:contractId", isAuthenticated, checkPremium, handleErrors(addUserFeedback));

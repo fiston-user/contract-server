@@ -14,6 +14,7 @@ import {
 } from "../utils/contractUtils";
 import { chatWithAI } from "../services/aiService";
 import mongoose from "mongoose";
+import redis from "../config/redis";
 
 // Configure multer for file upload
 const upload = multer({
@@ -79,6 +80,9 @@ export const analyzeContract = async (req: Request, res: Response) => {
           : undefined,
     });
 
+    // Invalidate cache for user's contracts list
+    await redis.del(`user_contracts:${user._id}`);
+
     await fs.unlink(req.file.path);
 
     res.json(savedAnalysis);
@@ -94,9 +98,25 @@ export const getUserContracts = async (req: Request, res: Response) => {
   const user = req.user as IUser;
 
   try {
+    // Check cache first
+    const cachedContracts = await redis.get(`user_contracts:${user._id}`);
+    if (cachedContracts) {
+      // The cached data is already an object, no need to parse
+      console.log("Cached contracts");
+      return res.json(cachedContracts);
+    }
+
+    // If not in cache, fetch from database
     const contracts = await ContractAnalysis.find({ userId: user._id }).sort({
       createdAt: -1,
     });
+
+    // Cache the result for future requests
+    await redis.set(`user_contracts:${user._id}`, contracts, {
+      ex: 300,
+    }); // Cache for 5 minutes
+
+    console.log("Fetched from database");
     res.json(contracts);
   } catch (error) {
     console.error("Error fetching user contracts:", error);
@@ -133,13 +153,25 @@ export const getContractById = async (req: Request, res: Response) => {
   const user = req.user as IUser;
 
   try {
+    // Check cache first
+    const cachedContract = await redis.get(`contract:${id}`);
+    if (cachedContract) {
+      // The cached data is already an object, no need to parse
+      return res.json(cachedContract);
+    }
+
+    // If not in cache, fetch from database
     const contract = await ContractAnalysis.findOne({
       _id: id,
       userId: user._id,
     });
+
     if (!contract) {
       return res.status(404).json({ error: "Contract analysis not found" });
     }
+
+    // Cache the result for future requests
+    await redis.set(`contract:${id}`, contract, { ex: 3600 }); // Cache for 1 hour
 
     res.json(contract);
   } catch (error) {
