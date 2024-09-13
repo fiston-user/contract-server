@@ -40,26 +40,16 @@ passport.use(
   )
 );
 
-passport.serializeUser((user: Express.User, done) => {
-  const userWithId = user as IUser & { _id: mongoose.Types.ObjectId };
-  done(null, userWithId._id.toString());
+passport.serializeUser((user: any, done) => {
+  done(null, user._id);
 });
 
 passport.deserializeUser(async (id: string, done) => {
   try {
-    let objectId: mongoose.Types.ObjectId;
-    
-    try {
-      objectId = new mongoose.Types.ObjectId(id);
-    } catch (error) {
-      // If the id is not a valid ObjectId, return null user
-      return done(null, null);
-    }
-
-    const user = await User.findById(objectId);
+    const user = await User.findById(id);
     done(null, user);
-  } catch (err) {
-    done(err, null);
+  } catch (error) {
+    done(error, null);
   }
 });
 

@@ -30,6 +30,10 @@ router.get("/logout", (req, res, next) => {
 });
 
 router.get("/current-user", (req, res) => {
+  console.log("Current user route called");
+  console.log("Session:", req.session);
+  console.log("User:", req.user);
+  console.log("isAuthenticated:", req.isAuthenticated());
   if (req.isAuthenticated()) {
     res.json(req.user);
   } else {
