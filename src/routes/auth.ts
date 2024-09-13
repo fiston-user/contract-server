@@ -12,8 +12,6 @@ router.get(
   "/google/callback",
   passport.authenticate("google", { failureRedirect: "/login" }),
   (req, res) => {
-    console.log("Google auth callback - User:", req.user);
-    console.log("Session:", req.session);
     // Successful authentication, redirect to client
     res.redirect(`${process.env.CLIENT_URL}/dashboard`);
   }
@@ -30,10 +28,6 @@ router.get("/logout", (req, res, next) => {
 });
 
 router.get("/current-user", (req, res) => {
-  console.log("Current user route called");
-  console.log("Session:", req.session);
-  console.log("User:", req.user);
-  console.log("isAuthenticated:", req.isAuthenticated());
   if (req.isAuthenticated()) {
     res.json(req.user);
   } else {
@@ -59,10 +53,6 @@ router.post("/login-test", (req, res, next) => {
 });
 
 router.get("/test-session", (req, res) => {
-  console.log("Test session route called");
-  console.log("Session:", req.session);
-  console.log("User:", req.user);
-  console.log("isAuthenticated:", req.isAuthenticated());
   if (req.isAuthenticated()) {
     res.json({ message: "Session is valid", user: req.user });
   } else {
