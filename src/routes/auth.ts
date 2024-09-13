@@ -54,4 +54,16 @@ router.post("/login-test", (req, res, next) => {
   })(req, res, next);
 });
 
+router.get("/test-session", (req, res) => {
+  console.log("Test session route called");
+  console.log("Session:", req.session);
+  console.log("User:", req.user);
+  console.log("isAuthenticated:", req.isAuthenticated());
+  if (req.isAuthenticated()) {
+    res.json({ message: "Session is valid", user: req.user });
+  } else {
+    res.status(401).json({ error: "No valid session" });
+  }
+});
+
 export default router;

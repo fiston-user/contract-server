@@ -1,9 +1,15 @@
 import { Request, Response, NextFunction } from "express";
 
-export const isAuthenticated = (req: Request, res: Response, next: NextFunction) => {
+export const isAuthenticated = (
+  req: Request,
+  res: Response,
+  next: NextFunction
+) => {
   console.log("isAuthenticated called");
-  console.log("Session:", req.session);
-  console.log("User:", req.user);
+  console.log("Session:", JSON.stringify(req.session, null, 2));
+  console.log("User:", JSON.stringify(req.user, null, 2));
+  console.log("Cookies:", req.cookies);
+  console.log("Headers:", req.headers);
   console.log("isAuthenticated:", req.isAuthenticated());
   if (req.isAuthenticated()) {
     return next();
