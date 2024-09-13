@@ -6,6 +6,7 @@ export const isAuthenticated = (
   next: NextFunction
 ) => {
   console.log("isAuthenticated called");
+  console.log("Session ID:", req.sessionID);
   console.log("Session:", JSON.stringify(req.session, null, 2));
   console.log("User:", JSON.stringify(req.user, null, 2));
   console.log("Cookies:", req.cookies);
