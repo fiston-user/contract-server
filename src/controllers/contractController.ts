@@ -15,6 +15,7 @@ import {
 import { chatWithAI } from "../services/aiService";
 import mongoose from "mongoose";
 import redis from "../config/redis";
+import { detectContractType } from "../services/aiService"; // Add this import
 
 // Configure multer for file upload
 const upload = multer({
@@ -45,7 +46,7 @@ const upload = multer({
   },
 }).single("contract"); // Change this line to accept a single file with field name 'contract'
 
-export const analyzeContract = async (req: Request, res: Response) => {
+export const detectAndConfirmContractType = async (req: Request, res: Response) => {
   const user = req.user as IUser;
 
   if (!req.file) {
@@ -54,12 +55,35 @@ export const analyzeContract = async (req: Request, res: Response) => {
 
   try {
     const pdfText = await extractTextFromPDF(req.file.path);
+    const detectedType = await detectContractType(pdfText);
+
+    res.json({ detectedType });
+  } catch (error) {
+    console.error("Error detecting contract type:", error);
+    res.status(500).json({ error: "An error occurred while detecting the contract type" });
+  }
+};
+
+export const analyzeContract = async (req: Request, res: Response) => {
+  const user = req.user as IUser;
+  const { contractType } = req.body; // Add this line to get the contract type from the request
+
+  if (!req.file) {
+    return res.status(400).json({ error: "No PDF file uploaded" });
+  }
+
+  if (!contractType) {
+    return res.status(400).json({ error: "Contract type is required" });
+  }
+
+  try {
+    const pdfText = await extractTextFromPDF(req.file.path);
     let analysis;
 
     if (user.isPremium) {
-      analysis = await analyzeContractWithAI(pdfText, "premium");
+      analysis = await analyzeContractWithAI(pdfText, "premium", contractType);
     } else {
-      analysis = await analyzeContractWithAI(pdfText, "free");
+      analysis = await analyzeContractWithAI(pdfText, "free", contractType);
     }
 
     // Validate the AI response
@@ -72,6 +96,7 @@ export const analyzeContract = async (req: Request, res: Response) => {
     const savedAnalysis = await ContractAnalysis.create({
       userId: user._id,
       contractText: pdfText,
+      contractType, // Add this line
       ...analysis,
       language,
       expirationDate:

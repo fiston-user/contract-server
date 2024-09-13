@@ -46,6 +46,11 @@ export interface IContractAnalysis extends Document {
   expirationDate: Date;
   language: string;
   aiModel: string;
+  contractType: string;
+  financialTerms?: {
+    description: string;
+    details: string[];
+  };
 }
 
 const ContractAnalysisSchema: Schema = new Schema({
@@ -91,6 +96,11 @@ const ContractAnalysisSchema: Schema = new Schema({
   expirationDate: { type: Date, required: false },
   language: { type: String, default: "en" },
   aiModel: { type: String, default: "gemini-pro" },
+  contractType: { type: String, required: true },
+  financialTerms: {
+    description: String,
+    details: [String],
+  },
 });
 
 export default mongoose.model<IContractAnalysis>(
