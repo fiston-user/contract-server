@@ -46,7 +46,10 @@ const upload = multer({
   },
 }).single("contract"); // Change this line to accept a single file with field name 'contract'
 
-export const detectAndConfirmContractType = async (req: Request, res: Response) => {
+export const detectAndConfirmContractType = async (
+  req: Request,
+  res: Response
+) => {
   const user = req.user as IUser;
 
   if (!req.file) {
@@ -60,7 +63,9 @@ export const detectAndConfirmContractType = async (req: Request, res: Response) 
     res.json({ detectedType });
   } catch (error) {
     console.error("Error detecting contract type:", error);
-    res.status(500).json({ error: "An error occurred while detecting the contract type" });
+    res
+      .status(500)
+      .json({ error: "An error occurred while detecting the contract type" });
   }
 };
 
@@ -163,6 +168,9 @@ export const deleteContractById = async (req: Request, res: Response) => {
     if (!contract) {
       return res.status(404).json({ error: "Contract analysis not found" });
     }
+
+    // Invalidate cache for user's contracts list
+    await redis.del(`user_contracts:${user._id}`);
 
     res.json({ message: "Contract analysis deleted successfully" });
   } catch (error) {

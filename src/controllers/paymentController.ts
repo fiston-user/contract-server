@@ -1,10 +1,7 @@
 import { Request, Response } from "express";
 import Stripe from "stripe";
 import User from "../models/User";
-import {
-  sendPremiumConfirmationEmail,
-  sendSubscriptionCancelledEmail,
-} from "../utils/emailService";
+import { sendPremiumConfirmationEmail } from "../utils/emailService";
 
 const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
   apiVersion: "2024-06-20",
@@ -18,12 +15,18 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
       payment_method_types: ["card"],
       line_items: [
         {
-          price: process.env.STRIPE_PRICE_ID, // Set this in your .env file
+          price_data: {
+            currency: "usd",
+            product_data: {
+              name: "Lifetime Premium Access",
+            },
+            unit_amount: 2000, // $20.00
+          },
           quantity: 1,
         },
       ],
       customer_email: user.email,
-      mode: "subscription",
+      mode: "payment",
       success_url: `${process.env.CLIENT_URL}/payment-success`,
       cancel_url: `${process.env.CLIENT_URL}/payment-cancelled`,
       client_reference_id: user._id.toString(),
@@ -55,15 +58,11 @@ export const handleWebhook = async (req: Request, res: Response) => {
   if (event.type === "checkout.session.completed") {
     const session = event.data.object as Stripe.Checkout.Session;
     const userId = session.client_reference_id;
-    const customerId = session.customer as string;
 
-    if (userId && customerId) {
+    if (userId) {
       const user = await User.findByIdAndUpdate(
         userId,
-        {
-          isPremium: true,
-          stripeCustomerId: customerId,
-        },
+        { isPremium: true },
         { new: true }
       );
       console.log(`User ${userId} upgraded to premium`);
@@ -77,78 +76,14 @@ export const handleWebhook = async (req: Request, res: Response) => {
   res.json({ received: true });
 };
 
-export const getSubscriptionStatus = async (req: Request, res: Response) => {
+export const getMembershipStatus = async (req: Request, res: Response) => {
   const user = req.user as any;
 
-  // Check if the user has a stripeCustomerId
-  if (!user.stripeCustomerId) {
-    return res.json({ status: "no active subscription" });
-  }
-
-  try {
-    const subscriptions = await stripe.subscriptions.list({
-      customer: user.stripeCustomerId,
-      status: "active",
-    });
-
-    if (subscriptions.data.length > 0) {
-      const subscription = subscriptions.data[0];
-      res.json({
-        status: subscription.status,
-        currentPeriodEnd: new Date(subscription.current_period_end * 1000),
-      });
-    } else {
-      res.json({ status: "no active subscription" });
-    }
-  } catch (error) {
-    console.error("Error fetching subscription status:", error);
-    res.status(500).json({ error: "Failed to fetch subscription status" });
+  if (user.isPremium) {
+    res.json({ status: "active" });
+  } else {
+    res.json({ status: "inactive" });
   }
 };
 
-export const cancelSubscription = async (req: Request, res: Response) => {
-  const user = req.user as any;
-
-  try {
-    const subscriptions = await stripe.subscriptions.list({
-      customer: user.stripeCustomerId,
-      status: "active",
-    });
-
-    if (subscriptions.data.length > 0) {
-      const subscription = subscriptions.data[0];
-      await stripe.subscriptions.update(subscription.id, {
-        cancel_at_period_end: true,
-      });
-
-      await User.findByIdAndUpdate(user._id, { isPremium: false });
-
-      await sendSubscriptionCancelledEmail(user.email, user.displayName);
-
-      res.json({ message: "Subscription cancelled successfully" });
-    } else {
-      res.status(404).json({ error: "No active subscription found" });
-    }
-  } catch (error) {
-    console.error("Error cancelling subscription:", error);
-    res.status(500).json({ error: "Failed to cancel subscription" });
-  }
-};
-
-export const updatePaymentMethod = async (req: Request, res: Response) => {
-  const user = req.user as any;
-  const { paymentMethodId } = req.body;
-
-  try {
-    await stripe.customers.update(user.stripeCustomerId, {
-      invoice_settings: {
-        default_payment_method: paymentMethodId,
-      },
-    });
-
-    res.json({ message: "Payment method updated successfully" });
-  } catch (error) {
-    console.error("Error updating payment method:", error);
-    res.status(500).json({ error: "Failed to update payment method" });
-  }
-};
+// Remove other unused functions
