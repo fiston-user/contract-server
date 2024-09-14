@@ -20,7 +20,7 @@ export const createCheckoutSession = async (req: Request, res: Response) => {
             product_data: {
               name: "Lifetime Premium Access",
             },
-            unit_amount: 2000, // $20.00
+            unit_amount: 100, // $1
           },
           quantity: 1,
         },
