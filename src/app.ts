@@ -63,6 +63,9 @@ app.use(
 app.use(passport.initialize());
 app.use(passport.session());
 
+// Move this line before defining routes
+app.set("trust proxy", 1);
+
 // health check endpoint
 app.get("/health", (req, res) => {
   res.send("OK");
@@ -85,8 +88,6 @@ app.use(
     res.status(500).json({ error: "Internal Server Error" });
   }
 );
-
-app.set("trust proxy", 1);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
