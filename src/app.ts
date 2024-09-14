@@ -23,8 +23,6 @@ app.use(
   cors({
     origin: process.env.CLIENT_URL,
     credentials: true,
-    methods: ["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    allowedHeaders: ["Content-Type", "Authorization"],
   })
 );
 
@@ -58,17 +56,12 @@ app.use(
       secure: process.env.NODE_ENV === "production",
       sameSite: process.env.NODE_ENV === "production" ? "none" : "lax",
       maxAge: 24 * 60 * 60 * 1000, // 24 hours
-      httpOnly: true,
-      domain: process.env.COOKIE_DOMAIN, // Add this line
     },
   })
 );
 
 app.use(passport.initialize());
 app.use(passport.session());
-
-// Move this line before defining routes
-app.set("trust proxy", 1);
 
 // health check endpoint
 app.get("/health", (req, res) => {
@@ -92,6 +85,8 @@ app.use(
     res.status(500).json({ error: "Internal Server Error" });
   }
 );
+
+app.set("trust proxy", 1);
 
 const PORT = process.env.PORT || 3000;
 app.listen(PORT, () => {
