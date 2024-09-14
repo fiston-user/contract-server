@@ -12,6 +12,7 @@ import contractRoutes from "./routes/contracts";
 import paymentRoutes from "./routes/payments";
 import { handleWebhook } from "./controllers/paymentController";
 import "./config/passport";
+import projectRoutes from "./routes/projects";
 
 dotenv.config();
 
@@ -70,6 +71,7 @@ app.get("/health", (req, res) => {
 app.use("/auth", authRoutes);
 app.use("/api", contractRoutes);
 app.use("/payments", paymentRoutes);
+app.use("/api/projects", projectRoutes);
 
 // Error handling middleware
 app.use(

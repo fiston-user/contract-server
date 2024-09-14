@@ -1,5 +1,6 @@
 import mongoose, { Document, Schema } from "mongoose";
 import { IUser } from "./User";
+import { IProject } from "./Project";
 
 interface IRisk {
   risk: string;
@@ -51,6 +52,7 @@ export interface IContractAnalysis extends Document {
     description: string;
     details: string[];
   };
+  projectId: IProject["_id"];
 }
 
 const ContractAnalysisSchema: Schema = new Schema({
@@ -101,6 +103,7 @@ const ContractAnalysisSchema: Schema = new Schema({
     description: String,
     details: [String],
   },
+  projectId: { type: Schema.Types.ObjectId, ref: "Project", required: true },
 });
 
 export default mongoose.model<IContractAnalysis>(

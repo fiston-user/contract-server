@@ -13,9 +13,12 @@ import {
   calculateExpirationDate,
 } from "../utils/contractUtils";
 import { chatWithAI } from "../services/aiService";
-import mongoose from "mongoose";
+import mongoose, { FilterQuery } from "mongoose";
 import redis from "../config/redis";
 import { detectContractType } from "../services/aiService"; // Add this import
+import Project from "../models/Project";
+import { IContractAnalysis } from "../models/ContractAnalysis";
+import { isValidObjectId } from "../utils/mongoUtils";
 
 // Configure multer for file upload
 const upload = multer({
@@ -71,7 +74,7 @@ export const detectAndConfirmContractType = async (
 
 export const analyzeContract = async (req: Request, res: Response) => {
   const user = req.user as IUser;
-  const { contractType } = req.body; // Add this line to get the contract type from the request
+  const { contractType, projectId } = req.body;
 
   if (!req.file) {
     return res.status(400).json({ error: "No PDF file uploaded" });
@@ -81,7 +84,16 @@ export const analyzeContract = async (req: Request, res: Response) => {
     return res.status(400).json({ error: "Contract type is required" });
   }
 
+  if (!projectId || !isValidObjectId(projectId)) {
+    return res.status(400).json({ error: "Invalid Project ID" });
+  }
+
   try {
+    const project = await Project.findOne({ _id: projectId, userId: user._id });
+    if (!project) {
+      return res.status(404).json({ error: "Project not found" });
+    }
+
     const pdfText = await extractTextFromPDF(req.file.path);
     let analysis;
 
@@ -100,8 +112,9 @@ export const analyzeContract = async (req: Request, res: Response) => {
 
     const savedAnalysis = await ContractAnalysis.create({
       userId: user._id,
+      projectId,
       contractText: pdfText,
-      contractType, // Add this line
+      contractType,
       ...analysis,
       language,
       expirationDate:
@@ -126,27 +139,25 @@ export const analyzeContract = async (req: Request, res: Response) => {
 
 export const getUserContracts = async (req: Request, res: Response) => {
   const user = req.user as IUser;
+  const { projectId } = req.query;
 
   try {
-    // Check cache first
-    const cachedContracts = await redis.get(`user_contracts:${user._id}`);
-    if (cachedContracts) {
-      // The cached data is already an object, no need to parse
-      console.log("Cached contracts");
-      return res.json(cachedContracts);
+    interface QueryType {
+      userId: mongoose.Types.ObjectId;
+      projectId?: mongoose.Types.ObjectId;
     }
 
-    // If not in cache, fetch from database
-    const contracts = await ContractAnalysis.find({ userId: user._id }).sort({
+    const query: QueryType = { userId: user._id as mongoose.Types.ObjectId };
+    if (projectId && typeof projectId === "string" && isValidObjectId(projectId)) {
+      query.projectId = new mongoose.Types.ObjectId(projectId);
+    }
+
+    const contracts = await ContractAnalysis.find(
+      query as FilterQuery<IContractAnalysis>
+    ).sort({
       createdAt: -1,
     });
 
-    // Cache the result for future requests
-    await redis.set(`user_contracts:${user._id}`, contracts, {
-      ex: 300,
-    }); // Cache for 5 minutes
-
-    console.log("Fetched from database");
     res.json(contracts);
   } catch (error) {
     console.error("Error fetching user contracts:", error);
@@ -159,6 +170,10 @@ export const getUserContracts = async (req: Request, res: Response) => {
 export const deleteContractById = async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = req.user as IUser;
+
+  if (!isValidObjectId(id)) {
+    return res.status(400).json({ error: "Invalid contract ID format" });
+  }
 
   try {
     const contract = await ContractAnalysis.findOneAndDelete({
@@ -184,6 +199,10 @@ export const deleteContractById = async (req: Request, res: Response) => {
 export const getContractById = async (req: Request, res: Response) => {
   const { id } = req.params;
   const user = req.user as IUser;
+
+  if (!isValidObjectId(id)) {
+    return res.status(400).json({ error: "Invalid contract ID format" });
+  }
 
   try {
     // Check cache first
