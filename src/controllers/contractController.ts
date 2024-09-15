@@ -1,45 +1,26 @@
 import { Request, Response } from "express";
+import mongoose, { FilterQuery } from "mongoose";
+import multer from "multer";
+import redis from "../config/redis";
+import ContractAnalysis, {
+  IContractAnalysis,
+} from "../models/ContractAnalysis";
+import Project from "../models/Project";
 import { IUser } from "../models/User";
-import ContractAnalysis from "../models/ContractAnalysis";
-import fs from "fs/promises";
 import {
   analyzeContractWithAI,
+  chatWithAI,
+  detectContractType,
+  detectLanguageWithAI,
   extractTextFromPDF,
 } from "../services/aiService";
-import multer from "multer";
-import path from "path";
-import {
-  detectLanguage,
-  calculateExpirationDate,
-} from "../utils/contractUtils";
-import { chatWithAI } from "../services/aiService";
-import mongoose, { FilterQuery } from "mongoose";
-import redis from "../config/redis";
-import { detectContractType } from "../services/aiService"; // Add this import
-import Project from "../models/Project";
-import { IContractAnalysis } from "../models/ContractAnalysis";
+import { calculateExpirationDate } from "../utils/contractUtils";
 import { isValidObjectId } from "../utils/mongoUtils";
 
-// Configure multer for file upload
+// Configure multer for memory storage
 const upload = multer({
-  storage: multer.diskStorage({
-    destination: "./uploads/",
-    filename: (
-      req: Express.Request,
-      file: Express.Multer.File,
-      cb: (error: Error | null, filename: string) => void
-    ) => {
-      cb(
-        null,
-        file.fieldname + "-" + Date.now() + path.extname(file.originalname)
-      );
-    },
-  }),
-  fileFilter: (
-    req: Express.Request,
-    file: Express.Multer.File,
-    cb: multer.FileFilterCallback
-  ) => {
+  storage: multer.memoryStorage(),
+  fileFilter: (req, file, cb) => {
     if (file.mimetype === "application/pdf") {
       cb(null, true);
     } else {
@@ -47,7 +28,7 @@ const upload = multer({
       cb(new Error("Only PDF files are allowed!"));
     }
   },
-}).single("contract"); // Change this line to accept a single file with field name 'contract'
+}).single("contract");
 
 export const detectAndConfirmContractType = async (
   req: Request,
@@ -60,15 +41,31 @@ export const detectAndConfirmContractType = async (
   }
 
   try {
-    const pdfText = await extractTextFromPDF(req.file.path);
+    // Store the file in Redis
+    const fileKey = `file:${user._id}:${Date.now()}`;
+    await redis.set(fileKey, req.file.buffer);
+
+    // Set expiration for the file in Redis (e.g., 1 hour)
+    await redis.expire(fileKey, 3600);
+
+    // Log the type of data stored in Redis
+    const storedData = await redis.get(fileKey);
+
+    const pdfText = await extractTextFromPDF(fileKey);
     const detectedType = await detectContractType(pdfText);
+
+    // Delete the file from Redis after processing
+    await redis.del(fileKey);
 
     res.json({ detectedType });
   } catch (error) {
     console.error("Error detecting contract type:", error);
     res
       .status(500)
-      .json({ error: "An error occurred while detecting the contract type" });
+      .json({
+        error: "An error occurred while detecting the contract type",
+        details: error instanceof Error ? error.message : "Unknown error",
+      });
   }
 };
 
@@ -94,7 +91,29 @@ export const analyzeContract = async (req: Request, res: Response) => {
       return res.status(404).json({ error: "Project not found" });
     }
 
-    const pdfText = await extractTextFromPDF(req.file.path);
+    // Check the number of uploads for free users
+    if (!user.isPremium) {
+      const uploadCount = await ContractAnalysis.countDocuments({
+        userId: user._id,
+      });
+      if (uploadCount >= 3) {
+        return res
+          .status(403)
+          .json({
+            error:
+              "Free users are limited to 1 contract upload. Please upgrade to premium for unlimited uploads.",
+          });
+      }
+    }
+
+    // Store the file in Redis
+    const fileKey = `file:${user._id}:${Date.now()}`;
+    await redis.set(fileKey, req.file.buffer);
+
+    // Set expiration for the file in Redis (e.g., 1 hour)
+    await redis.expire(fileKey, 3600);
+
+    const pdfText = await extractTextFromPDF(fileKey);
     let analysis;
 
     if (user.isPremium) {
@@ -108,7 +127,7 @@ export const analyzeContract = async (req: Request, res: Response) => {
       throw new Error("Invalid AI analysis response");
     }
 
-    const language = await detectLanguage(pdfText);
+    const language = await detectLanguageWithAI(pdfText);
 
     const savedAnalysis = await ContractAnalysis.create({
       userId: user._id,
@@ -126,7 +145,8 @@ export const analyzeContract = async (req: Request, res: Response) => {
     // Invalidate cache for user's contracts list
     await redis.del(`user_contracts:${user._id}`);
 
-    await fs.unlink(req.file.path);
+    // Delete the file from Redis after processing
+    await redis.del(fileKey);
 
     res.json(savedAnalysis);
   } catch (error) {
@@ -148,7 +168,11 @@ export const getUserContracts = async (req: Request, res: Response) => {
     }
 
     const query: QueryType = { userId: user._id as mongoose.Types.ObjectId };
-    if (projectId && typeof projectId === "string" && isValidObjectId(projectId)) {
+    if (
+      projectId &&
+      typeof projectId === "string" &&
+      isValidObjectId(projectId)
+    ) {
       query.projectId = new mongoose.Types.ObjectId(projectId);
     }
 
