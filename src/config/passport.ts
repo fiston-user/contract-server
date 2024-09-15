@@ -1,6 +1,7 @@
 import passport from "passport";
 import { Strategy as GoogleStrategy } from "passport-google-oauth20";
 import User, { IUser } from "../models/User";
+import { createDefaultProject } from "../utils/projectUtils";
 import { Strategy as LocalStrategy } from "passport-local";
 import mongoose from "mongoose";
 
@@ -14,52 +15,46 @@ if (!process.env.GOOGLE_CLIENT_ID || !process.env.GOOGLE_CLIENT_SECRET) {
 passport.use(
   new GoogleStrategy(
     {
-      clientID: process.env.GOOGLE_CLIENT_ID,
-      clientSecret: process.env.GOOGLE_CLIENT_SECRET,
-      callbackURL: `${process.env.SERVER_URL}/auth/google/callback`,
+      clientID: process.env.GOOGLE_CLIENT_ID!,
+      clientSecret: process.env.GOOGLE_CLIENT_SECRET!,
+      callbackURL: "/auth/google/callback",
     },
     async (accessToken, refreshToken, profile, done) => {
       try {
-        const existingUser = await User.findOne({ googleId: profile.id });
-        if (existingUser) {
-          return done(null, existingUser);
+        let user = await User.findOne({ googleId: profile.id });
+
+        if (!user) {
+          user = await new User({
+            googleId: profile.id,
+            email: profile.emails![0].value,
+            displayName: profile.displayName,
+            profilePicture: profile.photos![0].value,
+          }).save();
+
+          // Create a default project for the new user
+          await createDefaultProject(user);
         }
 
-        const newUser = await new User({
-          googleId: profile.id,
-          email: profile.emails![0].value,
-          displayName: profile.displayName,
-          profilePicture: profile.photos![0].value,
-        }).save();
-
-        done(null, newUser);
-      } catch (err) {
-        done(err as Error, undefined);
+        done(null, user);
+      } catch (error) {
+        done(error as Error, undefined);
       }
     }
   )
 );
 
-passport.serializeUser((user: Express.User, done) => {
-  const userWithId = user as IUser & { _id: mongoose.Types.ObjectId };
-  done(null, userWithId._id.toString());
+passport.serializeUser((user: any, done) => {
+  done(null, user._id);
 });
 
 passport.deserializeUser(async (id: string, done) => {
   try {
-    let objectId: mongoose.Types.ObjectId;
-    
-    try {
-      objectId = new mongoose.Types.ObjectId(id);
-    } catch (error) {
-      // If the id is not a valid ObjectId, return null user
-      return done(null, null);
-    }
+    const user = await User.findById(id);
 
-    const user = await User.findById(objectId);
     done(null, user);
-  } catch (err) {
-    done(err, null);
+  } catch (error) {
+    console.error("Deserialization error:", error);
+    done(error, null);
   }
 });
 
@@ -76,6 +71,9 @@ passport.use(
           email: "test@example.com",
           displayName: "Test User",
         }).save();
+
+        // Create a default project for the new user
+        await createDefaultProject(user);
       }
 
       // This is a test user. In a real application, you'd check the password.

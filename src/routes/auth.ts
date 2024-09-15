@@ -52,4 +52,12 @@ router.post("/login-test", (req, res, next) => {
   })(req, res, next);
 });
 
+router.get("/test-session", (req, res) => {
+  if (req.isAuthenticated()) {
+    res.json({ message: "Session is valid", user: req.user });
+  } else {
+    res.status(401).json({ error: "No valid session" });
+  }
+});
+
 export default router;
